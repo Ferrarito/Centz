@@ -115,7 +115,7 @@ function exportCSV() {
             tx.recurring ? 'Sim' : 'Não',
         ]);
     const csv  = [headers, ...rows].map(r => r.join(';')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: `centz_${selectedYear}_${String(selectedMonth + 1).padStart(2, '0')}.csv` });
     a.click();
@@ -253,29 +253,40 @@ function updateMonthLabel() {
 }
 
 function updateDashboard() {
-    updateMonthLabel();
-    let totalIncome = 0, totalExpense = 0, totalBalance = 0;
+    // Atualiza o mês 
+    updateMonthLabel(); 
 
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let totalBalance = 0;
+
+    // Varre o array de transações 
     transactions.forEach(tx => {
-        const d          = new Date(tx.date + 'T00:00:00');
+        // Converte a data da transação para comparar com o mês atual da tela
+        const d = new Date(tx.date + 'T00:00:00');
         const isSelected = d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+        
         if (tx.type === 'income') {
-            totalBalance += tx.value;
-            if (isSelected) totalIncome += tx.value;
+            totalBalance += tx.value; // Soma no saldo global
+            if (isSelected) totalIncome += tx.value; // Soma nas entradas do mês selecionado
         } else {
-            totalBalance -= tx.value;
-            if (isSelected) totalExpense += tx.value;
+            totalBalance -= tx.value; // Subtrai do saldo global
+            if (isSelected) totalExpense += tx.value; // Soma nas saídas do mês selecionado
         }
     });
 
+    // Atualização da Interface (DOM) do HTML
     const saldoEl = document.getElementById('card-saldo');
+    
+    // Muda a cor do texto do Saldo para vermelho caso a conta fique no negativo
     saldoEl.className = `text-3xl font-bold mb-4 ${totalBalance < 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`;
+    
+    // Usa a função animateCounter para criar o efeito visual do número subindo rápido
     animateCounter(saldoEl, totalBalance, v => formatCurrencyWithSign(v));
-    animateCounter(document.getElementById('card-receitas-mini'), totalIncome,  formatCurrency);
+    animateCounter(document.getElementById('card-receitas-mini'), totalIncome, formatCurrency);
     animateCounter(document.getElementById('card-despesas-mini'), totalExpense, formatCurrency);
-    animateCounter(document.getElementById('card-income'),        totalIncome,  formatCurrency);
-    animateCounter(document.getElementById('card-expense'),       totalExpense, formatCurrency);
 
+    // Lógica da Barra de Despesas
     const expensePct = totalIncome > 0 ? Math.min((totalExpense / totalIncome) * 100, 100) : 0;
     document.getElementById('expense-bar').style.width      = `${expensePct}%`;
     document.getElementById('expense-pct-text').textContent = `${Math.round(expensePct)}% da sua renda gasta`;
@@ -285,6 +296,7 @@ function updateDashboard() {
     else if (expensePct > 50) { statusEl.textContent = 'Atenção';  statusEl.className = 'text-xs font-semibold text-amber-500'; }
     else                      { statusEl.textContent = 'Saudável'; statusEl.className = 'text-xs font-semibold text-brand-green'; }
 
+    // Lógica do Score de Saúde Financeira
     const savingsRate = totalIncome > 0 ? Math.max(0, (totalIncome - totalExpense) / totalIncome) : 0;
     const score       = Math.min(100, Math.max(0, Math.round(savingsRate * 100)));
     const scoreEl     = document.getElementById('health-score');
@@ -296,6 +308,7 @@ function updateDashboard() {
     else if (score >= 40) { scoreBar.style.backgroundColor = '#f59e0b'; scoreLbl.textContent = 'Regular';   scoreLbl.className = 'text-xs font-semibold text-amber-500'; }
     else                  { scoreBar.style.backgroundColor = '#ef4444'; scoreLbl.textContent = 'Crítico';   scoreLbl.className = 'text-xs font-semibold text-red-500'; }
 
+    // Atualiza a tabela de transações recentes no Dashboard
     renderRecentTransactions();
 }
 
